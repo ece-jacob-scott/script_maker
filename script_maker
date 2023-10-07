@@ -1,0 +1,87 @@
+#! python3
+
+import os
+import argparse
+import subprocess
+
+if __name__ == "__main__":
+    # Get 2 command line flags from the user
+    # 1. The name of the script to be created
+    # 2. The amount of history to be included in the script in line numbers with a default of 10
+    # 3. Script output directory
+    parser = argparse.ArgumentParser(
+        prog="script_maker.py",
+        description="Creates a script file from the command line history",
+    )
+    parser.add_argument(
+        "-n",
+        "--name",
+        metavar="",
+        type=str,
+        help="The name of the script to be created",
+        required=True,
+    )
+    parser.add_argument(
+        "-y",
+        "--history",
+        metavar="",
+        type=int,
+        help="The amount of history to be included in the script in line numbers with a default of 10",
+        default=10,
+    )
+    parser.add_argument(
+        "-d",
+        "--directory",
+        metavar="",
+        type=str,
+        help="Script output directory",
+        default=os.path.expanduser("~/scripts/"),
+    )
+
+    args = parser.parse_args()
+
+    # Create the script file
+    if os.path.exists(args.name):
+        print("File already exists")
+        exit(-1)
+
+    # Open the script file
+    if args.directory[-1] != "/":
+        args.directory += "/"
+    file_name = f"{args.directory}{args.name}.sh"
+    with open(file_name, "w+") as script_file:
+        print(f"Creating {file_name}...")
+
+        # Add the shebang line
+        script_file.write("#!/bin/bash\n")
+
+        # Add the set line
+        script_file.write("set -evx \n\n")
+
+        # Get the history from the bash_history file
+        print(f"Getting the last {args.history} lines of history...")
+
+        history_file_name = os.path.expanduser("~/.zsh_history")
+
+        history_lines = []
+        with open(os.path.expanduser(history_file_name), "r") as bash_history_file:
+            # skip the first line because it is the invocation of this script
+            history_lines = bash_history_file.readlines()[::-1][: args.history + 1][1:]
+
+        # Clean the history lines
+        clean_lines = []
+        for line in history_lines:
+            clean_line = line.strip()
+            # Remove the history number
+            clean_line = clean_line.split(";")[-1]
+            # Remove 'clear' commands
+            if clean_line == "clear":
+                continue
+            clean_lines.append(clean_line)
+
+        # Write the history to the script file
+        for line in clean_lines[::-1]:
+            script_file.write(line + "\n")
+
+    # Make the script executable
+    subprocess.run(["chmod", "+x", file_name])
